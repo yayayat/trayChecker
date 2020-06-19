@@ -1,1 +1,12 @@
-/.vscode
+#exclude every file with no extension
+*
+!/**/
+!*.*
+
+#exclude . dirs
+.*
+
+*.o
+
+#files we do not want to ignore
+!.gitignore
