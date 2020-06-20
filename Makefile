@@ -10,3 +10,8 @@ trayChkr : $(OBJS)
 main.o: init.hpp MJPEGWriter.hpp
 init.o: init.hpp MJPEGWriter.hpp
 MJPEGWriter.o: MJPEGWriter.hpp
+
+.PHONY : clean
+
+clean:
+	rm -f *.o trayChkr
