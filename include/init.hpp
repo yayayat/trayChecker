@@ -19,4 +19,7 @@
 
 #include <sys/ioctl.h>
 
+#include "MJPEGWriter.hpp"
+#include "config.hpp"
+
 int init();

@@ -1,5 +1,6 @@
 #include "init.hpp"
 #include "MJPEGWriter.hpp"
+#include "config.hpp"
 
 using namespace std;
 using namespace cv;
@@ -8,6 +9,7 @@ extern MJPEGWriter MJPEGStream;
 extern VideoCapture cap;
 extern Mat background, raw, frame, medFilter, difference;
 extern Rect roi;
+extern settings cfg;
 
 static void on_close(int signal) {
   MJPEGStream.stop();
@@ -17,8 +19,9 @@ static void on_close(int signal) {
 }
 
 int init() {
-  MJPEGStream = MJPEGWriter(7777);
-
+  signal(SIGINT, on_close);
+  loadConfig(cfg);
+  MJPEGStream = MJPEGWriter(cfg.port);
   v4l2_control c;
   int descriptor = v4l2_open("/dev/video0", O_RDWR);
 
@@ -27,14 +30,14 @@ int init() {
 
   //--- INITIALIZE VIDEO DEVICE
 
-  cout << "Setting exposure time: ";
+  cout << "Setting exposure time:";
   c.id = V4L2_CID_EXPOSURE_ABSOLUTE;
-  c.value = 5000;
+  c.value = cfg.exp;
   if (v4l2_ioctl(descriptor, VIDIOC_S_CTRL, &c)) {
     cout << "error" << endl;
     return -1;
   } else
-    cout << "done" << endl;
+    cout << "\"" << cfg.exp << "\" done" << endl;
   // manual exposure control
   cout << "Setting manual exposure mode: ";
   c.id = V4L2_CID_EXPOSURE_AUTO;
@@ -44,7 +47,6 @@ int init() {
     return -1;
   } else
     cout << "done" << endl;
-
   //--- INITIALIZE VIDEOCAPTURE
 
   int deviceID = 0;         // 0 = open default camera
@@ -61,24 +63,21 @@ int init() {
   cap.read(raw);
   cout << "Camera resolution is \"" << raw.cols << " x " << raw.rows << "\""
        << endl;
-  resize(raw, background, cv::Size(raw.cols * 0.5, raw.rows * 0.5), 0, 0,
-         INTER_LINEAR);
-  cout << "Scaled resolution is \"" << background.cols << " x "
-       << background.rows << "\"" << endl;
+  resize(raw, background, cv::Size(cfg.res.x, cfg.res.y), 0, 0, INTER_LINEAR);
+  cout << "Scaled resolution is \"" << cfg.res.x << " x " << cfg.res.y << "\""
+       << endl;
 
   cvtColor(background, background, cv::COLOR_RGB2GRAY);
   medianBlur(background, background, 15);
 
-  roi = Rect(100, 30, background.cols - 100 * 2, background.rows - 30 * 2);
-
+  roi = Rect((cfg.res.x - cfg.ROIsize.x) / 2 + cfg.ROIpos.x,
+             (cfg.res.y - cfg.ROIsize.y) / 2 + cfg.ROIpos.y, cfg.ROIsize.x,
+             cfg.ROIsize.y);
   sleep(1);
 
   MJPEGStream.write(background);
   MJPEGStream.start();
 
-  cout << "Streaming MJPEG @ 7777 port" << endl;
-
-  signal(SIGINT, on_close);
+  cout << "Streaming MJPEG @ " << cfg.port << " port " << endl;
   return 0;
-  // //--- GRAB AND WRITE LOOP
 }
