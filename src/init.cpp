@@ -19,39 +19,45 @@ static void on_close(int signal) {
 }
 
 int init() {
+  printf("KFC tray recognition system v.1.0\n"
+         "by Dmitry Borisov aka yayayat 2020\n");
+
   signal(SIGINT, on_close);
+
+  //--- INITIALIZE GPIO
+  if (gpioInit())
+    return -1;
+
   loadConfig(cfg);
   MJPEGStream = MJPEGWriter(cfg.port);
   v4l2_control c;
-  int descriptor = v4l2_open("/dev/video0", O_RDWR);
-
-  cout << "KFC tray recognition system v.1.0\n"
-          "by Dmitry Borisov aka yayayat 2020\n";
 
   //--- INITIALIZE VIDEO DEVICE
 
-  cout << "Setting exposure time:";
+  int descriptor = v4l2_open("/dev/video0", O_RDWR);
+  printf("Setting exposure time %d..", cfg.exp);
   c.id = V4L2_CID_EXPOSURE_ABSOLUTE;
   c.value = cfg.exp;
   if (v4l2_ioctl(descriptor, VIDIOC_S_CTRL, &c)) {
-    cout << "error" << endl;
+    printf("error\n");
     return -1;
   } else
-    cout << "\"" << cfg.exp << "\" done" << endl;
+    printf("done\n");
   // manual exposure control
-  cout << "Setting manual exposure mode: ";
+  printf("Setting manual exposure mode..");
   c.id = V4L2_CID_EXPOSURE_AUTO;
   c.value = V4L2_EXPOSURE_MANUAL;
-  if (v4l2_ioctl(descriptor, VIDIOC_S_CTRL, &c)) {
-    cout << "error" << endl;
+  if (v4l2_ioctl(descriptor, VIDIOC_S_CTRL, &c)){
+    printf("error\n");
     return -1;
   } else
-    cout << "done" << endl;
+    printf("done\n");
   //--- INITIALIZE VIDEOCAPTURE
 
   int deviceID = 0;         // 0 = open default camera
   int apiID = cv::CAP_V4L2; // 0 = autodetect default API
-  cap.open(deviceID + apiID);
+  // cap.open(deviceID + apiID);
+  cap.open("data/sample.m4v");
   if (!cap.isOpened()) {
     cerr << "ERROR! Unable to open camera\n";
     return -1;
@@ -59,13 +65,11 @@ int init() {
 
   sleep(1);
 
-  cout << "Start grabbing" << endl;
+  printf("Start grabbing\n");
   cap.read(raw);
-  cout << "Camera resolution is \"" << raw.cols << " x " << raw.rows << "\""
-       << endl;
+  printf("Camera resolution is \"%d x %d\"\n", raw.cols, raw.rows);
   resize(raw, background, cv::Size(cfg.res.x, cfg.res.y), 0, 0, INTER_LINEAR);
-  cout << "Scaled resolution is \"" << cfg.res.x << " x " << cfg.res.y << "\""
-       << endl;
+  printf("Scaled resolution is \"%d x %d\"\n", cfg.res.x, cfg.res.y);
 
   cvtColor(background, background, cv::COLOR_RGB2GRAY);
   medianBlur(background, background, 15);
@@ -78,6 +82,15 @@ int init() {
   MJPEGStream.write(background);
   MJPEGStream.start();
 
-  cout << "Streaming MJPEG @ " << cfg.port << " port " << endl;
+  printf("Streaming MJPEG @ %d port\n", cfg.port);
+  return 0;
+}
+
+int gpioInit() {
+  printf("Setting up GPIO..");
+  wiringPiSetup();    // Setup the library
+  pinMode(0, OUTPUT); // Configure GPIO0 as an output
+  pinMode(3, INPUT);  // Configure GPIO0 as an input
+  printf("done\n");
   return 0;
 }

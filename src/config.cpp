@@ -12,17 +12,16 @@ int loadConfig(settings &stngs) {
   try {
     cfg.readFile(configFile);
   } catch (const FileIOException &fioex) {
-    std::cerr << "I/O error while reading file." << std::endl;
+    cerr << "I/O error while reading file." << std::endl;
     return -1;
   } catch (const ParseException &pex) {
-    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+    cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
               << " - " << pex.getError() << std::endl;
     return -1;
   }
 
   const Setting &root = cfg.getRoot();
 
-  // Найти все книжки на полке.
   try {
     stngs.exp = root["Exposure"];
     stngs.res.x = root["Resolution"]["w"];

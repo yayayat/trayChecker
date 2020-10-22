@@ -7,7 +7,7 @@ int MJPEGWriter::_write(int sock, char *s, int len) {
   }
   {
     try {
-      int retval = ::send(sock, s, len, 0x4000);
+      int retval = send(sock, s, len, 0x4000);
       return retval;
     } catch (int e) {
       cout << "An exception occurred. Exception Nr. " << e << '\n';
