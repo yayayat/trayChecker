@@ -7,7 +7,7 @@ Wpi:            (0) (2) (3)             |
 ________________________________________|
 
              DSUB
-(VIN+) (VIN+)     (VIN-) (VIN-)
+(VIN+) (VIN+)      (GND) (GND)
 ╭─────────────────────────────╮
  \ 5     4     3     2     1 /
   \   9     8     7     6   /
@@ -21,7 +21,8 @@ Wpi:  0     2     21    22
 
 MJPEGWriter MJPEGStream;
 VideoCapture cap;
-Mat background, raw, frame, medFilter, difference;
+Mat background, raw, transformed, frame, medFilter, difference;
+Mat M;
 Rect roi;
 settings cfg;
 VideoWriter outputVideo;
@@ -50,20 +51,34 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
-    outputVideo << raw;
-    resize(raw, raw, Size(cfg.res.x, cfg.res.y), 0, 0, INTER_LINEAR);
-    cvtColor(raw, frame, COLOR_RGB2GRAY);
+    // outputVideo << raw;
+
+    warpPerspective(raw, transformed, M, raw.size());
+    resize(transformed, transformed, Size(cfg.res.x, cfg.res.y), 0, 0,
+           INTER_LINEAR);
+    cvtColor(transformed, frame, COLOR_RGB2GRAY);
     medianBlur(frame, medFilter, 15);
     subtract(background, medFilter, difference);
+    Mat difChannels[3];
 
-    Mat buf = Mat::zeros(Size(cfg.res.x, cfg.res.y), raw.type());
-    Mat Out = Mat::zeros(Size(cfg.res.x * 2, cfg.res.y * 2), raw.type());
-    raw.copyTo(Out(Rect(0, 0, cfg.res.x, cfg.res.y)));
+    cvtColor(difference, difference, COLOR_GRAY2RGB);
+    split(difference, difChannels);
+    difChannels[1] = Mat::zeros(difference.rows, difference.cols,
+                                CV_8UC1); // green channel is set to 0
+    difChannels[2] = Mat::zeros(difference.rows, difference.cols,
+                                CV_8UC1); // red channel is set to 0
+    Mat buf = Mat::zeros(Size(cfg.res.x, cfg.res.y), transformed.type());
+    Mat Out = Mat::zeros(Size(cfg.res.x * 2 + raw.cols, raw.rows),
+                         transformed.type());
+    merge(difChannels, 3, difference);
+
+    raw.copyTo(Out(Rect(cfg.res.x * 2, 0, raw.cols, raw.rows)));
+    transformed.copyTo(Out(Rect(0, 0, cfg.res.x, cfg.res.y)));
     cvtColor(background, buf, cv::COLOR_GRAY2RGB);
     buf.copyTo(Out(Rect(cfg.res.x, 0, cfg.res.x, cfg.res.y)));
     cvtColor(medFilter, buf, cv::COLOR_GRAY2RGB);
     buf.copyTo(Out(Rect(0, cfg.res.y, cfg.res.x, cfg.res.y)));
-    cvtColor(difference, buf, cv::COLOR_GRAY2RGB);
+    cvtColor(difference, buf, cv::COLOR_BGR2RGB);
     buf.copyTo(Out(Rect(cfg.res.x, cfg.res.y, cfg.res.x, cfg.res.y)));
     MJPEGStream.write(Out);
   }

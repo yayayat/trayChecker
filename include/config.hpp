@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include "opencv2/opencv.hpp"
 #include <libconfig.h++>
 
 struct vec2d {
@@ -13,7 +14,8 @@ struct vec2d {
 struct settings {
   int exp;
   vec2d res;
-  vec2d ROIpos, ROIsize;
+  cv::Point2f ImageCorners[4];
+  cv::Point2f ROICorners[4];
   bool streamOn;
   int port;
   int frameRate;

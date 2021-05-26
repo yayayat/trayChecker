@@ -7,7 +7,8 @@ using namespace cv;
 
 extern MJPEGWriter MJPEGStream;
 extern VideoCapture cap;
-extern Mat background, raw, frame, medFilter, difference;
+extern Mat background, raw, transformed, frame, medFilter, difference;
+extern Mat M;
 extern Rect roi;
 extern settings cfg;
 
@@ -47,7 +48,7 @@ int init() {
   printf("Setting manual exposure mode..");
   c.id = V4L2_CID_EXPOSURE_AUTO;
   c.value = V4L2_EXPOSURE_MANUAL;
-  if (v4l2_ioctl(descriptor, VIDIOC_S_CTRL, &c)){
+  if (v4l2_ioctl(descriptor, VIDIOC_S_CTRL, &c)) {
     printf("error\n");
     return -1;
   } else
@@ -56,8 +57,10 @@ int init() {
 
   int deviceID = 0;         // 0 = open default camera
   int apiID = cv::CAP_V4L2; // 0 = autodetect default API
-  // cap.open(deviceID + apiID);
-  cap.open("data/sample.m4v");
+
+  cap.open(deviceID + apiID); // Get image from camera
+  //cap.open("data/sample.m4v"); // Get image from videofile
+  
   if (!cap.isOpened()) {
     cerr << "ERROR! Unable to open camera\n";
     return -1;
@@ -67,16 +70,22 @@ int init() {
 
   printf("Start grabbing\n");
   cap.read(raw);
+  // raw = imread("data/sample.png");
   printf("Camera resolution is \"%d x %d\"\n", raw.cols, raw.rows);
-  resize(raw, background, cv::Size(cfg.res.x, cfg.res.y), 0, 0, INTER_LINEAR);
+
+  cfg.ImageCorners[0] = cvPoint(0, 0);
+  cfg.ImageCorners[1] = cvPoint(raw.cols, 0);
+  cfg.ImageCorners[2] = cvPoint(raw.cols, raw.rows);
+  cfg.ImageCorners[3] = cvPoint(0, raw.rows);
+
+  M = getPerspectiveTransform(cfg.ROICorners, cfg.ImageCorners);
+  warpPerspective(raw, transformed, M, raw.size());
+  resize(transformed, background, cv::Size(cfg.res.x, cfg.res.y), 0, 0,
+         INTER_LINEAR);
   printf("Scaled resolution is \"%d x %d\"\n", cfg.res.x, cfg.res.y);
 
   cvtColor(background, background, cv::COLOR_RGB2GRAY);
   medianBlur(background, background, 15);
-
-  roi = Rect((cfg.res.x - cfg.ROIsize.x) / 2 + cfg.ROIpos.x,
-             (cfg.res.y - cfg.ROIsize.y) / 2 + cfg.ROIpos.y, cfg.ROIsize.x,
-             cfg.ROIsize.y);
   sleep(1);
 
   MJPEGStream.write(background);
