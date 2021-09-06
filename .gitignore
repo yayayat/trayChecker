@@ -8,7 +8,7 @@
 data/*
 data
 *.o
-
+out
 test.cpp
 
 #files we do not want to ignore

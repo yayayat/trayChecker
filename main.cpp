@@ -7,7 +7,7 @@ Wpi:            (0) (2) (3)             |
 ________________________________________|
 
              DSUB
-(VIN+) (VIN+)      (GND) (GND)
+(12V)  (12V)       (GND) (GND)
 ╭─────────────────────────────╮
  \ 5     4     3     2     1 /
   \   9     8     7     6   /
@@ -26,6 +26,9 @@ Mat M;
 Rect roi;
 settings cfg;
 VideoWriter outputVideo;
+vector<Mat> lastFrames;
+int LP5012;
+int level = 0;
 
 using namespace std;
 using namespace cv;
@@ -37,40 +40,44 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  // outputVideo.open("out/1.avi", CV_FOURCC('M', 'J', 'P', 'G'), 30.,
-  //                  Size(640, 480), true);
-
   for (;;) {
     // wait for a new frame from camera and store it into 'raw'
     cap.read(raw);
     if (raw.empty()) {
-      printf("ERROR! blank frame grabbed\n"
-             "Reloading video..");
-      cap.open("data/sample.m4v");
+      // printf("ERROR! blank frame grabbed\n"
+      //        "Reloading video..");
+      // cap.open("out/9.mov");
       printf("done\n");
       continue;
     }
 
     // outputVideo << raw;
 
+    // processing
     warpPerspective(raw, transformed, M, raw.size());
     resize(transformed, transformed, Size(cfg.res.x, cfg.res.y), 0, 0,
            INTER_LINEAR);
     cvtColor(transformed, frame, COLOR_RGB2GRAY);
     medianBlur(frame, medFilter, 15);
-    subtract(background, medFilter, difference);
-    Mat difChannels[3];
+    absdiff(background, medFilter, difference);
+    threshold(difference, difference, 20, 255, THRESH_BINARY);
+    Scalar mn = mean(difference);
+    level = mn[0] * 64;
 
+    // converting difference matrix to redchannel
+    Mat difChannels[3];
     cvtColor(difference, difference, COLOR_GRAY2RGB);
     split(difference, difChannels);
     difChannels[1] = Mat::zeros(difference.rows, difference.cols,
                                 CV_8UC1); // green channel is set to 0
     difChannels[2] = Mat::zeros(difference.rows, difference.cols,
-                                CV_8UC1); // red channel is set to 0
+                                CV_8UC1); // blue channel is set to 0
+    merge(difChannels, 3, difference);
+
+    // output monitor
     Mat buf = Mat::zeros(Size(cfg.res.x, cfg.res.y), transformed.type());
     Mat Out = Mat::zeros(Size(cfg.res.x * 2 + raw.cols, raw.rows),
                          transformed.type());
-    merge(difChannels, 3, difference);
 
     raw.copyTo(Out(Rect(cfg.res.x * 2, 0, raw.cols, raw.rows)));
     transformed.copyTo(Out(Rect(0, 0, cfg.res.x, cfg.res.y)));
@@ -84,17 +91,3 @@ int main(int argc, char *argv[]) {
   }
   return 0;
 }
-
-// rectangle(difference, roi, Scalar(0), FILLED, LINE_8);
-// fillPoly(raw, &pts, &npts, 1, true, Scalar(0, 0, 255));
-// rectangle(raw, roi, Scalar(0, 0, 255), 1, LINE_8);
-// polylines(raw, &pts, &npts, 1, true, Scalar(0, 0, 255));
-
-// const Point *pts = (const Point *)contour.data();
-// int npts = 4;
-
-// vector<Point> contour;
-// contour.push_back(Point(30, 30));
-// contour.push_back(Point(90, 30));
-// contour.push_back(Point(60, 60));
-// contour.push_back(Point(30, 60));

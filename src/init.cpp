@@ -7,19 +7,113 @@ using namespace cv;
 
 extern MJPEGWriter MJPEGStream;
 extern VideoCapture cap;
+extern VideoWriter outputVideo;
 extern Mat background, raw, transformed, frame, medFilter, difference;
 extern Mat M;
 extern Rect roi;
 extern settings cfg;
+extern int LP5012;
+extern int level;
 
 static void on_close(int signal) {
   MJPEGStream.stop();
-  // video.release();
+  // outputVideo.release();
+  wiringPiI2CWriteReg8(LP5012, 0x17, 0xFF);
   cout << endl << "exitting program" << endl;
   exit(EXIT_SUCCESS);
 }
 
 int init() {
+  videoInit();
+  cap.read(raw);
+  printf("Camera resolution is \"%d x %d\"\n", raw.cols, raw.rows);
+
+  cfg.ImageCorners[0] = cvPoint(0, 0);
+  cfg.ImageCorners[1] = cvPoint(raw.cols, 0);
+  cfg.ImageCorners[2] = cvPoint(raw.cols, raw.rows);
+  cfg.ImageCorners[3] = cvPoint(0, raw.rows);
+
+  M = getPerspectiveTransform(cfg.ROICorners, cfg.ImageCorners);
+  warpPerspective(raw, transformed, M, raw.size());
+  resize(transformed, background, cv::Size(cfg.res.x, cfg.res.y), 0, 0,
+         INTER_LINEAR);
+  printf("Scaled resolution is \"%d x %d\"\n", cfg.res.x, cfg.res.y);
+
+  cvtColor(background, background, cv::COLOR_RGB2GRAY);
+  medianBlur(background, background, 15);
+  sleep(1);
+
+  MJPEGStream.write(background);
+  MJPEGStream.start();
+
+  printf("Streaming MJPEG @ %d port\n", cfg.port);
+  return 0;
+}
+
+//        wiringPiI2CWriteReg8(LP5012, LEDS[j], i);
+
+int LEDS[7] = {0x0C, 0x0F, 0x0E, 0x11, 0x12, 0x14, 0x15};
+int LEDR[4] = {0x15, 0x12, 0x0E, 0x0C};
+
+static void *blink(void *a) {
+  for (int count = 0;; count++) {
+    for (int i = 0; i < 4; i++) {
+      int buf = level - 0xFF * i;
+      wiringPiI2CWriteReg8(LP5012, LEDR[i], (buf > 0) ? min(buf, 0xFF) :
+      0x00);
+    }
+    digitalWrite(21, digitalRead(2));
+    digitalWrite(22, digitalRead(0));
+    level = (level + 1) % 1024;
+    usleep(100000);
+  }
+}
+
+// static void *blink(void *a) {
+//   for (;;) {
+//     for (int i = 0; i < 4; i++) {
+//       for (int j = 0; j < 256; j++) {
+//         wiringPiI2CWriteReg8(LP5012, LEDR[i], j);
+//         usleep(10000);
+//       }
+//       for (int j = 255; j >= 0; j--) {
+//         wiringPiI2CWriteReg8(LP5012, LEDR[i], j);
+//         usleep(10000);
+//       }
+//     }
+//   }
+// }
+
+// static void *blink(void *a) {
+//   for (;;) {
+//     digitalWrite(21, digitalRead(2));
+//     digitalWrite(22, digitalRead(0));
+//   }
+// }
+
+pthread_t blinker;
+
+//     (IN0) (IN1) (OUT0)(OUT1)
+// GPIO: 17    27    5     6
+// Wpi:  0     2     21    22
+
+int gpioInit() {
+  printf("Setting up GPIO..");
+  wiringPiSetup(); // Setup the library
+  pinMode(0, INPUT);
+  pinMode(2, INPUT);
+  pinMode(21, OUTPUT);
+  pinMode(22, OUTPUT);
+  LP5012 = wiringPiI2CSetup(0x14);
+  wiringPiI2CWriteReg8(LP5012, 0x17, 0xFF);
+  wiringPiI2CWriteReg8(LP5012, 0x00, 0b01000000);
+  pthread_create(&blinker, NULL, &blink, nullptr);
+  printf("done\n");
+  return 0;
+}
+
+int videoInit() {
+
   printf("KFC tray recognition system v.1.0\n"
          "by Dmitry Borisov aka yayayat 2020\n");
 
@@ -59,47 +153,14 @@ int init() {
   int apiID = cv::CAP_V4L2; // 0 = autodetect default API
 
   cap.open(deviceID + apiID); // Get image from camera
-  //cap.open("data/sample.m4v"); // Get image from videofile
-  
+  // cap.open("out/9.mov"); // Get image from videofile
+
   if (!cap.isOpened()) {
     cerr << "ERROR! Unable to open camera\n";
     return -1;
   }
 
-  sleep(1);
+  // sleep(1);
 
-  printf("Start grabbing\n");
-  cap.read(raw);
-  // raw = imread("data/sample.png");
-  printf("Camera resolution is \"%d x %d\"\n", raw.cols, raw.rows);
-
-  cfg.ImageCorners[0] = cvPoint(0, 0);
-  cfg.ImageCorners[1] = cvPoint(raw.cols, 0);
-  cfg.ImageCorners[2] = cvPoint(raw.cols, raw.rows);
-  cfg.ImageCorners[3] = cvPoint(0, raw.rows);
-
-  M = getPerspectiveTransform(cfg.ROICorners, cfg.ImageCorners);
-  warpPerspective(raw, transformed, M, raw.size());
-  resize(transformed, background, cv::Size(cfg.res.x, cfg.res.y), 0, 0,
-         INTER_LINEAR);
-  printf("Scaled resolution is \"%d x %d\"\n", cfg.res.x, cfg.res.y);
-
-  cvtColor(background, background, cv::COLOR_RGB2GRAY);
-  medianBlur(background, background, 15);
-  sleep(1);
-
-  MJPEGStream.write(background);
-  MJPEGStream.start();
-
-  printf("Streaming MJPEG @ %d port\n", cfg.port);
-  return 0;
-}
-
-int gpioInit() {
-  printf("Setting up GPIO..");
-  wiringPiSetup();    // Setup the library
-  pinMode(0, OUTPUT); // Configure GPIO0 as an output
-  pinMode(3, INPUT);  // Configure GPIO0 as an input
-  printf("done\n");
   return 0;
 }
