@@ -24,6 +24,7 @@ int loadConfig(settings &stngs) {
   cfg.lookupValue("StreamOn", stngs.streamOn);
   cfg.lookupValue("Port", stngs.port);
   cfg.lookupValue("FrameRate", stngs.frameRate);
+  cfg.lookupValue("DifferenceThreshold", stngs.differenceThreshold);
   cfg.lookupValue("RecordingOn", stngs.recOn);
   cfg.lookupValue("OutputFolder", stngs.outputFolder);
   cfg.lookupValue("OutputContainer", stngs.outputContainer);
