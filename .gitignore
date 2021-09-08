@@ -5,8 +5,12 @@
 
 #exclude . dirs and files
 .*
-
+data/*
+data
 *.o
+out
+test.cpp
 
 #files we do not want to ignore
 !.gitignore
+!makefile

@@ -12,34 +12,31 @@ int loadConfig(settings &stngs) {
   try {
     cfg.readFile(configFile);
   } catch (const FileIOException &fioex) {
-    std::cerr << "I/O error while reading file." << std::endl;
+    cerr << "I/O error while reading file." << std::endl;
     return -1;
   } catch (const ParseException &pex) {
-    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-              << " - " << pex.getError() << std::endl;
+    cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine() << " - "
+         << pex.getError() << std::endl;
     return -1;
   }
-
-  const Setting &root = cfg.getRoot();
-
-  // Найти все книжки на полке.
-  try {
-    stngs.exp = root["Exposure"];
-    stngs.res.x = root["Resolution"]["w"];
-    stngs.res.y = root["Resolution"]["h"];
-    stngs.ROIpos.x = root["SubtractRegion"]["pos"]["x"];
-    stngs.ROIpos.y = root["SubtractRegion"]["pos"]["y"];
-    stngs.ROIsize.x = root["SubtractRegion"]["size"]["w"];
-    stngs.ROIsize.y = root["SubtractRegion"]["size"]["h"];
-    stngs.streamOn = root["StreamOn"];
-    stngs.port = root["Port"];
-    stngs.frameRate = root["FrameRate"];
-    stngs.recOn = root["RecordingOn"];
-    stngs.outputFolder = root["OutputFolder"];
-    stngs.outputContainer = root["OutputContainer"];
-    stngs.outputCodec = root["OutputCodec"];
-  } catch (const SettingNotFoundException &nfex) {
-    // Ignore.
+  cfg.setAutoConvert(true);
+  cfg.lookupValue("Exposure", stngs.exp);
+  cfg.lookupValue("StreamOn", stngs.streamOn);
+  cfg.lookupValue("Port", stngs.port);
+  cfg.lookupValue("FrameRate", stngs.frameRate);
+  cfg.lookupValue("DifferenceThreshold", stngs.differenceThreshold);
+  cfg.lookupValue("RecordingOn", stngs.recOn);
+  cfg.lookupValue("OutputFolder", stngs.outputFolder);
+  cfg.lookupValue("OutputContainer", stngs.outputContainer);
+  cfg.lookupValue("OutputCodec", stngs.outputCodec);
+  cfg.lookupValue("Resolution.x", stngs.res.x);
+  cfg.lookupValue("Resolution.y", stngs.res.y);
+  const Setting &ROI = cfg.lookup("ROICorners");
+  int count = min(ROI.getLength(), 4);
+  for (int i = 0; i < count; i++) {
+    const Setting &corner = ROI[i];
+    stngs.ROICorners[i].x = corner[0];
+    stngs.ROICorners[i].y = corner[1];
   }
 
   return 0;

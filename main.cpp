@@ -1,43 +1,49 @@
+/*  TERMINAL (LEGACY PROTO)
+               ------------- ---------  |
+               |(x) (x) (x)| |(x) (x)|  |
+               |___________| |_______|  |
+GPIO:           17  27  22    GND +12   |
+Wpi:            (0) (2) (3)             |
+________________________________________|
+
+             DSUB
+(12V)  (12V)       (GND) (GND)
+╭─────────────────────────────╮
+ \ 5     4     3     2     1 /
+  \   9     8     7     6   /
+   ╰───────────────────────╯
+    (IN1) (IN0) (OUT1)(OUT0)
+GPIO: 17    27    5     6
+Wpi:  0     2     21    22
+*/
+
 #include "init.hpp"
 
 MJPEGWriter MJPEGStream;
 VideoCapture cap;
-Mat background, raw, frame, medFilter, difference;
+Mat background, raw, transformed, frame, medFilter, difference;
+Mat M;
 Rect roi;
 settings cfg;
+VideoWriter outputVideo;
+vector<Mat> lastFrames;
+pthread_mutex_t mutex_capture = PTHREAD_MUTEX_INITIALIZER;
+int LP5012;
+int level = 0;
 
 using namespace std;
 using namespace cv;
 
 int main(int argc, char *argv[]) {
-  if (init()) {
-    cerr << "Initialization failed! Are you super user?" << endl;
-    return -1;
-  }
-  cout << "Initialization compited!";
-  for (;;) {
-    // wait for a new frame from camera and store it into 'raw'
-    cap.read(raw);
-    if (raw.empty()) {
-      cerr << "ERROR! blank frame grabbed\n";
-      continue;
+    if (init()) {
+        printf(
+            "Initialization failed! Check video device accessibility or try "
+            "sudo\n");
+        return -1;
     }
-    resize(raw, raw, Size(cfg.res.x, cfg.res.y), 0, 0, INTER_LINEAR);
-    cvtColor(raw, frame, COLOR_RGB2GRAY);
-    medianBlur(frame, medFilter, 15);
-    subtract(background, medFilter, difference);
-    rectangle(difference, roi, Scalar(0), FILLED, LINE_8);
-    rectangle(raw, roi, Scalar(0, 0, 255), 1, LINE_8);
-    Mat buf = Mat::zeros(Size(cfg.res.x, cfg.res.y), raw.type());
-    Mat Out = Mat::zeros(Size(cfg.res.x * 2, cfg.res.y * 2), raw.type());
-    raw.copyTo(Out(Rect(0, 0, cfg.res.x, cfg.res.y)));
-    cvtColor(background, buf, cv::COLOR_GRAY2RGB);
-    buf.copyTo(Out(Rect(cfg.res.x, 0, cfg.res.x, cfg.res.y)));
-    cvtColor(medFilter, buf, cv::COLOR_GRAY2RGB);
-    buf.copyTo(Out(Rect(0, cfg.res.y, cfg.res.x, cfg.res.y)));
-    cvtColor(difference, buf, cv::COLOR_GRAY2RGB);
-    buf.copyTo(Out(Rect(cfg.res.x, cfg.res.y, cfg.res.x, cfg.res.y)));
-    MJPEGStream.write(Out);
-  }
-  return 0;
+
+    for (;;) {
+        sleep(1);
+    }
+    return 0;
 }
