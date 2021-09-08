@@ -43,59 +43,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (;;) {
-        // wait for a new frame from camera and store it into 'raw'
-        pthread_mutex_lock(&mutex_capture);
-        cap.read(raw);
-        if (raw.empty()) {
-            // printf("ERROR! blank frame grabbed\n"
-            //        "Reloading video..");
-            // cap.open("out/9.mov");
-            printf("done\n");
-            continue;
-        }
-
-        // outputVideo << raw;
-
-        // processing
-        warpPerspective(raw, transformed, M, raw.size());
-        resize(transformed, transformed, Size(cfg.res.x, cfg.res.y), 0, 0,
-               INTER_LINEAR);
-        cvtColor(transformed, frame, COLOR_RGB2GRAY);
-        medianBlur(frame, medFilter, 15);
-
-        absdiff(background, medFilter, difference);
-
-        threshold(difference, difference, 20, 255, THRESH_BINARY);
-        Scalar mn = mean(difference);
-        level = mn[0] * 64;
-
-        // converting difference matrix to redchannel
-        Mat difChannels[3];
-        cvtColor(difference, difference, COLOR_GRAY2RGB);
-        split(difference, difChannels);
-        difChannels[1] = Mat::zeros(difference.rows, difference.cols,
-                                    CV_8UC1);  // green channel is set to 0
-        difChannels[2] = Mat::zeros(difference.rows, difference.cols,
-                                    CV_8UC1);  // blue channel is set to 0
-        merge(difChannels, 3, difference);
-
-        // output monitor
-        Mat buf = Mat::zeros(Size(cfg.res.x, cfg.res.y), transformed.type());
-        Mat Out = Mat::zeros(Size(cfg.res.x * 2 + raw.cols, raw.rows),
-                             transformed.type());
-
-        raw.copyTo(Out(Rect(cfg.res.x * 2, 0, raw.cols, raw.rows)));
-        transformed.copyTo(Out(Rect(0, 0, cfg.res.x, cfg.res.y)));
-
-        cvtColor(background, buf, cv::COLOR_GRAY2RGB);
-
-        buf.copyTo(Out(Rect(cfg.res.x, 0, cfg.res.x, cfg.res.y)));
-        cvtColor(medFilter, buf, cv::COLOR_GRAY2RGB);
-        buf.copyTo(Out(Rect(0, cfg.res.y, cfg.res.x, cfg.res.y)));
-        cvtColor(difference, buf, cv::COLOR_BGR2RGB);
-        buf.copyTo(Out(Rect(cfg.res.x, cfg.res.y, cfg.res.x, cfg.res.y)));
-        MJPEGStream.write(Out);
-        pthread_mutex_unlock(&mutex_capture);
+        sleep(1);
     }
     return 0;
 }

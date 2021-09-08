@@ -32,3 +32,5 @@ int init();
 int gpioInit();
 int videoInit();
 int captureBackground();
+int checkDifference();
+int drawOutput();

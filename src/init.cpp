@@ -58,6 +58,7 @@ int LEDR[4] = {0x15, 0x12, 0x0E, 0x0C};
 static void *blink(void *a) {
     int inState, inStatelast, outState;
     for (;;) {
+        cap.read(raw);
         inState = digitalRead(2) + (digitalRead(0) << 1);
         if (inState != inStatelast) {
             switch (inState) {
@@ -66,9 +67,12 @@ static void *blink(void *a) {
                     break;
                 case 1:
                     captureBackground();
+                    // drawOutput();
                     outState = 2;
                     break;
                 case 2:
+                    checkDifference();
+                    drawOutput();
                     cout << level << endl;
                     outState = level > cfg.differenceThreshold ? 2 : 1;
                     break;
@@ -81,7 +85,7 @@ static void *blink(void *a) {
             inStatelast = inState;
             // cout << level << endl;
         }
-        usleep(100000);
+        usleep(10000);
 
         // for (int i = 0; i < 4; i++) {
         //   int buf = level - 0xFF * i;
@@ -193,14 +197,64 @@ int videoInit() {
 }
 
 int captureBackground() {
-    pthread_mutex_lock(&mutex_capture);
-    cap.read(raw);
+    // pthread_mutex_lock(&mutex_capture);
+    // cap.read(raw);
     warpPerspective(raw, transformed, M, raw.size());
     cout << "New background captured!" << endl;
     resize(transformed, background, cv::Size(cfg.res.x, cfg.res.y), 0, 0,
            INTER_LINEAR);
     cvtColor(background, background, cv::COLOR_RGB2GRAY);
     medianBlur(background, background, 15);
-    pthread_mutex_unlock(&mutex_capture);
+    // pthread_mutex_unlock(&mutex_capture);
+    return 0;
+}
+
+int checkDifference() {
+    // pthread_mutex_lock(&mutex_capture);
+    // cap.read(raw);
+    warpPerspective(raw, transformed, M, raw.size());
+    resize(transformed, transformed, Size(cfg.res.x, cfg.res.y), 0, 0,
+           INTER_LINEAR);
+    cvtColor(transformed, frame, COLOR_RGB2GRAY);
+    medianBlur(frame, medFilter, 15);
+
+    absdiff(background, medFilter, difference);
+
+    threshold(difference, difference, 20, 255, THRESH_BINARY);
+    Scalar mn = mean(difference);
+    level = mn[0] * 64;
+    // pthread_mutex_unlock(&mutex_capture);
+    return 0;
+}
+
+int drawOutput() {
+    // pthread_mutex_lock(&mutex_capture);
+    // converting difference matrix to redchannel
+    Mat difChannels[3];
+    cvtColor(difference, difference, COLOR_GRAY2RGB);
+    split(difference, difChannels);
+    difChannels[1] = Mat::zeros(difference.rows, difference.cols,
+                                CV_8UC1);  // green channel is set to 0
+    difChannels[2] = Mat::zeros(difference.rows, difference.cols,
+                                CV_8UC1);  // blue channel is set to 0
+    merge(difChannels, 3, difference);
+
+    // output monitor
+    Mat buf = Mat::zeros(Size(cfg.res.x, cfg.res.y), transformed.type());
+    Mat Out = Mat::zeros(Size(cfg.res.x * 2 + raw.cols, raw.rows),
+                         transformed.type());
+
+    raw.copyTo(Out(Rect(cfg.res.x * 2, 0, raw.cols, raw.rows)));
+    transformed.copyTo(Out(Rect(0, 0, cfg.res.x, cfg.res.y)));
+
+    cvtColor(background, buf, cv::COLOR_GRAY2RGB);
+
+    buf.copyTo(Out(Rect(cfg.res.x, 0, cfg.res.x, cfg.res.y)));
+    cvtColor(medFilter, buf, cv::COLOR_GRAY2RGB);
+    buf.copyTo(Out(Rect(0, cfg.res.y, cfg.res.x, cfg.res.y)));
+    cvtColor(difference, buf, cv::COLOR_BGR2RGB);
+    buf.copyTo(Out(Rect(cfg.res.x, cfg.res.y, cfg.res.x, cfg.res.y)));
+    MJPEGStream.write(Out);
+    // pthread_mutex_unlock(&mutex_capture);
     return 0;
 }
