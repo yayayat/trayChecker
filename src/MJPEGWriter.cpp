@@ -29,7 +29,6 @@ int MJPEGWriter::_read(int socket, char *buffer) {
 }
 
 void MJPEGWriter::Listener() {
-
   // send http header
   std::string header;
   header += "HTTP/1.0 200 OK\r\n";
